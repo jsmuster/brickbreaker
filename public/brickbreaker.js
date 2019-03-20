@@ -1,3 +1,5 @@
+/* Copyright 2019, Arseniy Tomkevich, All rights reserved. */
+
 /**
  *  The brick breaker application
  *
