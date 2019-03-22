@@ -338,7 +338,7 @@ BrickBreaker = new function()
       plat_x: 0
     };
 
-    showMessage("Level " + (current_level + 1));
+    showMessage("Level " + (current_level + 1), false);
 
     start();
   }
@@ -355,13 +355,18 @@ BrickBreaker = new function()
 
     if(msg != null)
     {
-      showMessage(msg, true);
+      showMsg(msg, true);
     }
 
     if(animRequest != null)
     {
       cancelAnimationFrame(animRequest);
     }
+  }
+
+  function hideMessage()
+  {
+    DOM.message.style.display = "none";
   }
 
   /**
@@ -373,11 +378,28 @@ BrickBreaker = new function()
    *
    *  @return {undefined}
    */
-  function showMessage(msgUid, sticky)
+  function showMessage(message, sticky)
+  {
+    // sticky = keep the message on screen or hide it after a certain time
+    if (!message) return DOM.message.classList.remove('active');
+
+    DOM.message.style.display = "block";
+    DOM.message.innerHTML = message;
+    DOM.message.classList.add('active');
+
+    if(sticky == false)
+    {
+      setTimeout(() => { DOM.message.style.display = "none" }, 2000);
+    }
+  }
+
+  function showMsg(msgUid, sticky)
   {
     // sticky = keep the message on screen or hide it after a certain time
     var message = messages[msgUid];
     if (!message) return DOM.message.classList.remove('active');
+
+    DOM.message.style.display = "block";
 
     DOM.message.innerHTML = message;
     DOM.message.classList.add('active');
@@ -436,15 +458,16 @@ BrickBreaker = new function()
     {
       // removes a dot 5 seconds later
       setTimeout(function () {
-        if(dot.parentNode)
-        dot.parentNode.removeChild(dot);
+        if(dot && dot.parentNode)
+          dot.parentNode.removeChild(dot);
       }, 100000);
     }
     else
     {
       // removes a dot 3 seconds later
       setTimeout(function () {
-        dot.parentNode.removeChild(dot);
+        if(dot && dot.parentNode)
+          dot.parentNode.removeChild(dot);
       }, 3000);
     }
 
@@ -518,6 +541,8 @@ BrickBreaker = new function()
       brick = children[i];
       DOM.bricks.removeChild(brick);
     }
+
+    bricks = [];
   };
 
   /**
@@ -1468,6 +1493,21 @@ BrickBreaker = new function()
       // escape
       case 27:
       break;
+      // r
+      case 82:
+      current_level = 0;
+      setNextStage();
+      break;
+      // n
+      case 78:
+      
+      if(levels.length > (current_level + 1))
+        current_level++;
+      else
+        current_level = 0;
+      
+      setNextStage();
+      break;
     }
   };
 
@@ -1620,10 +1660,12 @@ BrickBreaker = new function()
       {
         // end game
         localStorage.setItem('current_level', 0);
+        
+        showMsg(messages.won, false);
 
         current_level = 0;
 
-        setNextStage();
+        //setNextStage();
       }
       
       // no more bricks left, move to another stage
