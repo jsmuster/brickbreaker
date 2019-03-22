@@ -264,7 +264,7 @@ BrickBreaker = new function()
    *
    *  @return {undefined}
    */
-  function start(arg_message)
+  function start()
   {
     //Position platform
     positionPlatform();
@@ -300,6 +300,25 @@ BrickBreaker = new function()
     return start();
   }
 
+
+  // set next game stage
+  function setNextStage()
+  {
+    //in_progress = true;
+
+    clearBricks();
+
+    tracking = {
+      ball_x: 1,
+      ball_y: 1,
+      plat_x: 0
+    };
+
+    showMessage("Level " + (current_level + 1));
+
+    start();
+  }
+
   function gameOver(msg)
   {
     in_progress = false;
@@ -312,7 +331,7 @@ BrickBreaker = new function()
 
     if(msg != null)
     {
-      showMessage(msg);
+      showMessage(msg, true);
     }
 
     if(animRequest != null)
@@ -330,8 +349,9 @@ BrickBreaker = new function()
    *
    *  @return {undefined}
    */
-  function showMessage(msgUid)
+  function showMessage(msgUid, sticky)
   {
+    // sticky = keep the message on screen or hide it after a certain time
     var message = messages[msgUid];
     if (!message) return DOM.message.classList.remove('active');
 
@@ -349,7 +369,7 @@ BrickBreaker = new function()
     }
     else if(type == 1)
     {
-      
+      brick.className = '';
     }
     else if(type == 2)
     {
@@ -450,6 +470,29 @@ BrickBreaker = new function()
     return line;
   };
 
+
+  /**
+   * Clears bricks
+   */
+  function clearBricks()
+  {
+    let brick, arr = DOM.bricks.children, node, children = [], i, l = arr.length;
+    
+    for(i = 0; i < l; i++)
+    {
+      node = arr[i];
+
+      if(node.nodeType == 1)
+        children.push(node);
+    }
+
+    for(i = 0, l = children.length; i < l; i++)
+    {
+      brick = children[i];
+      DOM.bricks.removeChild(brick);
+    }
+  };
+
   /**
    *  Build the brick DOM nodes for the current level
    *
@@ -477,7 +520,7 @@ BrickBreaker = new function()
 
     let lvl = levels[current_level], row, brick, brickType;
 
-    window.DOM = DOM;
+    //window.DOM = DOM;
 
     for(const row of lvl)
     {
@@ -685,7 +728,7 @@ BrickBreaker = new function()
     checkPlatformCollisions();
 
     //Check brick collisions
-    checkBrickCollisions();
+    return checkBrickCollisions();
   }
 
   /**
@@ -720,7 +763,6 @@ BrickBreaker = new function()
     {
       DOM.ball.setX(vwidth - DOM.ball.width);
 
-      // rev tracking.ball_x = tracking.ball_x * -1;
       DOM.ball.reverseX();
     }
 
@@ -728,18 +770,13 @@ BrickBreaker = new function()
     if(DOM.ball.y < 0)
     {
       DOM.ball.setY(0);
-      // rev tracking.ball_y = tracking.ball_y * -1;
       DOM.ball.reverseY();
     }
     // ball reached the most bottom
     else if(vheight - DOM.ball.y - DOM.ball.height < 0)
     {
-      //DOM.ball.setY(vheight - DOM.ball.height);
-
-      //tracking.ball_y = tracking.ball_y * -1;
       console.log("most bottom")
       gameOver('lost');
-      //reset();
     }
     
     // platform reached the most left
@@ -764,32 +801,45 @@ BrickBreaker = new function()
   function checkPlatformCollisions()
   {
     /**
-     *  TODO
-     *
-     *  This function checks collisions between the ball and the platform
-     *
-     *  Be sure to use isIntersecting and shouldReverseX/shouldReverseY to change the ball tracking modifier
-     *  Also be sure to account for the platform movement that can also change the ball direction
-     */
+    *  TODO
+    *
+    *  This function checks collisions between the ball and the platform
+    *
+    *  Be sure to use isIntersecting and shouldReverseX/shouldReverseY to change the ball tracking modifier
+    *  Also be sure to account for the platform movement that can also change the ball direction
+    */
 
-     DOM.platform.rect = DOM.platform.el.getBoundingClientRect();
-     DOM.ball.rect = DOM.ball.el.getBoundingClientRect();
+    DOM.platform.rect = DOM.platform.el.getBoundingClientRect();
+    DOM.ball.rect = DOM.ball.el.getBoundingClientRect();
 
-     //DOM.platform.rect;
-     //DOM.ball.rect;
+    if(isIntersecting(DOM.platform.rect, DOM.ball.rect))
+    {
+      processCollision(DOM.platform);
+      console.log("tracking.ball_x", tracking.ball_x)
+      // get the bounding rectangle again (after processing of collision we may have moved the ball a bit)
+      DOM.ball.rect = DOM.ball.el.getBoundingClientRect();
 
-     //console.log("DOM.platform.rect", DOM.platform.rect);
-     //console.log("DOM.ball.rect", DOM.ball.rect);
+      // now find which platform side has been hit
+      let phalf = ((DOM.platform.rect.width - DOM.ball.rect.width) / 2);
+      debugger
+      if(DOM.ball.rect.x  < (DOM.platform.rect.x + phalf))
+      {
+        // ball should go left
 
-     if(isIntersecting(DOM.platform.rect, DOM.ball.rect))
-     {
-      //DOM.ball.setY(vheight - DOM.ball.height);
-      // rev tracking.ball_y = tracking.ball_y * -1;
-      DOM.ball.reverseY();
-     }
-
-     //shouldReverseX();
-     //shouldReverseY();
+        if(tracking.ball_x > 0)
+        {
+          DOM.ball.reverseX();
+        }
+      }
+      else if(DOM.ball.rect.x > (DOM.platform.rect.right - phalf))
+      {
+        // ball should go right
+        if(tracking.ball_x < 0)
+        {
+          DOM.ball.reverseX();
+        }
+      }
+    }
   }
 
 
@@ -809,16 +859,12 @@ BrickBreaker = new function()
 
     let A = {x:prevX, y:prevY};
     let B = {x:ballrect.x, y:ballrect.y};
-    //ball = {...ballrect};//{x:ballrect.x, y:ballrect.y, width: ballrect.width, height: ballrect.height};
     let C = extendLine({x:B.x, y:B.y}, {x:A.x, y:A.y}, avgmod);
 
     for(var i = 1, l = 20; i < l; i++)
     {
-      // (x1,y1, x2,y2 => x3,y3, x4,y4)
       midp = midpoint(A.x, A.y, C.x, C.y, 0.05 * i);
 
-      //ball.x = midp.x;
-      //ball.y = midp.y;
       ball = {width: ballrect.width, height: ballrect.height, x:midp.x, y:midp.y, left: midp.x, top: midp.y};
       ball.right = ball.x + ball.width;
       ball.bottom = ball.y + ball.height;
@@ -864,25 +910,33 @@ BrickBreaker = new function()
      *    Invuln -> Invuln
      */
     DOM.ball.rect = DOM.ball.el.getBoundingClientRect();
-    let badbricks = [], bbrick;
+    let badbricks = [], bbrick, bricksLeft = 0;
 
     bricks.forEach((brick) => 
     {
-      if(brick.type > 0 && isIntersecting(brick.rect, DOM.ball.rect))
+      if(brick.type > 0)
       {
-        badbricks.push(brick);
+        if(isIntersecting(brick.rect, DOM.ball.rect))
+        {
+          badbricks.push(brick);
+        }
+        else
+        {
+          bricksLeft++;
+        }
       }
     });
 
     if(badbricks.length)
     {
-
       if(badbricks.length == 1)
       {
         processCollision(badbricks[0]);
       }
       else
       {
+        // collision is with more than one brick, calculate it as if its 1 large brick by figuring out min / max values of that set
+
         // least x & y, most x & y
         let left = null, top = null, right = null, bottom = null;
         
@@ -914,14 +968,34 @@ BrickBreaker = new function()
         bbrick = {rect:{x: left, y: top, width: (right - left), height: (bottom - top), left, right, top, bottom}};
         console.log("bbrick", bbrick);
 
-        // bbrick.left = left;
-        // bbrick.right = right;
-        // bbrick.top = top;
-        // bbrick.bottom = bottom;
-
         processCollision(bbrick);
       }
+
+      badbricks.forEach((brick) => 
+      {
+        // *  0: none
+        // *  1: default
+        // *  2: strong block (2 hits needed)
+        // *  3: invuln block
+        
+        // brick.rect;
+        // brick.type;
+        // brick.elem;
+        
+        if(brick.type == 2)
+        {
+          brick.type = 1;
+          brick.elem.className = '';
+        }
+        else if(brick.type == 1)
+        {
+          brick.type = 0;
+          brick.elem.className = 'empty';
+        }
+      });
     }
+
+    return bricksLeft;
   }
 
   // extends a line and gets us the end coordinate
@@ -979,8 +1053,6 @@ BrickBreaker = new function()
     // only one point, edge case
     else if(psum == 1)
     {
-      //dir = getBallDirection();
-
       // extend line by average of ball movement per frame
       let A, B, B2, A2, avgmod = Math.ceil(Math.ceil(modifiers.ball_x + modifiers.ball_y) / 2);
 
@@ -1109,7 +1181,7 @@ BrickBreaker = new function()
     ballrect = DOM.ball.rect;
 
     goodp = lastGoodPointb4Collision(brick.rect, ballrect, prevX, prevY);
-    console.log("last good point", goodp);
+    
     DOM.ball.setX(goodp.x);
     DOM.ball.setY(goodp.y);
 
@@ -1317,7 +1389,6 @@ BrickBreaker = new function()
      *    - Check for collisions using checkCollisions()
      *    - Check to see if there are no more bricks and either go to the next round or show a win message and start over
      */
-     
 
     if(debugMode == false)
     {
@@ -1332,7 +1403,7 @@ BrickBreaker = new function()
 
     changeDelta = (now) % 1000 / 1000;
     
-    let msg = ("delta : " + (now - startTimer) % 1000 / 1000);
+    //let msg = ("delta : " + (now - startTimer) % 1000 / 1000);
     //DOM.message.innerHTML = JSON.stringify(tracking);
 
     if(tracking.ball_x != 0 || tracking.ball_y != 0)
@@ -1346,17 +1417,34 @@ BrickBreaker = new function()
       positionPlatform(modifiers.plat_x * tracking.plat_x * -1, true, 1134);
     }
 
-    msg = vwidth - DOM.platform.x - DOM.platform.width;
-    msg = DOM.platform.x;
+    //msg = vwidth - DOM.platform.x - DOM.platform.width;
+    //msg = DOM.platform.x;
 
-    DOM.message.innerHTML = msg;
+    //DOM.message.innerHTML = msg;
 
     // this should execute after we change our position
-    checkCollisions();
+    let bricksLeft = checkCollisions();
 
     // save to understand direction
     prevX = DOM.ball.x;
     prevY = DOM.ball.y;
+
+    if(bricksLeft <= 0)
+    {
+      if(levels.length > (current_level + 1))
+      {
+        current_level++;
+
+        setNextStage();
+      }
+      else
+      {
+        // end game
+      }
+      
+      // no more bricks left, move to another stage
+      
+    }
 
     //startTimer = Date.now();
 
