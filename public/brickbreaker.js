@@ -271,12 +271,7 @@ BrickBreaker = new function()
 
     //Animate
     //TODO
-    if(animRequest != null)
-    {
-      cancelAnimationFrame(animRequest);
-    }
     
-    doAnimate();
   }
 
   /**
@@ -300,6 +295,13 @@ BrickBreaker = new function()
     startTimer = Date.now();
 
     in_progress = true;
+
+    if(animRequest != null)
+    {
+      cancelAnimationFrame(animRequest);
+    }
+    
+    doAnimate();
   };
 
   /**
@@ -434,12 +436,13 @@ BrickBreaker = new function()
     {
       // removes a dot 5 seconds later
       setTimeout(function () {
+        if(dot.parentNode)
         dot.parentNode.removeChild(dot);
       }, 100000);
     }
     else
     {
-      // removes a dot 5 seconds later
+      // removes a dot 3 seconds later
       setTimeout(function () {
         dot.parentNode.removeChild(dot);
       }, 3000);
@@ -1046,7 +1049,8 @@ BrickBreaker = new function()
         }
         else
         {
-          bricksLeft++;
+          if(brick.type != 3)
+            bricksLeft++;
         }
       }
     });
@@ -1402,7 +1406,8 @@ BrickBreaker = new function()
       break;
       // space
       case 32:
-        
+        setNextStage();
+        //reset();
       break;
       // right
       case 37:
@@ -1617,6 +1622,8 @@ BrickBreaker = new function()
         localStorage.setItem('current_level', 0);
 
         current_level = 0;
+
+        setNextStage();
       }
       
       // no more bricks left, move to another stage
