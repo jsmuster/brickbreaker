@@ -12,7 +12,7 @@ BrickBreaker = new function()
   //########################################
 
   //DOM Nodes
-  var DOM = {
+  let DOM = {
     platform: null,
     ball: null,
     bricks: null,
@@ -20,7 +20,7 @@ BrickBreaker = new function()
   };
 
   //Messages
-  var messages = {
+  let messages = {
     start: 'Press the spacebar to start the game',
     round_win: 'Round won! Press the spacebar to go to the next level',
     won: 'You\'ve won! Press the spacebar to play again',
@@ -36,7 +36,7 @@ BrickBreaker = new function()
    *    2: strong block (2 hits needed)
    *    3: invuln block
    */
-  var levels = [
+  let levels = [
 
     //Starting level
     [
@@ -63,11 +63,25 @@ BrickBreaker = new function()
     ]
   ];
 
+  // used to calculate average speed of the platform movement
+  let distance_traveled = 0;
+  let distance_per_second = 0;
+  let distance_per_short = 0;
+  let travel_start = 0;
+
   //Current level index
-  var current_level = 0;
+  let current_level = 0;
+
+  // load the current level
+  let _current_level = parseInt(localStorage.getItem('current_level'));
+
+  if(_current_level >= 0)
+  {
+    current_level = _current_level;
+  }
 
   //Is the game in progress?
-  var in_progress = false;
+  let in_progress = false;
 
   /**
    *  When building the bricks based on the level, use this array to store brick info
@@ -83,7 +97,7 @@ BrickBreaker = new function()
    *      3: invuln block
    *  }
    */
-  var bricks = [];
+  let bricks = [];
 
   /**
    *  Keep track of the ball and platform directions
@@ -93,7 +107,7 @@ BrickBreaker = new function()
    *    0: Ball or platform not moving
    *    1: Ball or platform moving right
    */
-  var tracking = {
+  let tracking = {
     ball_x: -1,
     ball_y: 1,
     plat_x: 0
@@ -105,7 +119,13 @@ BrickBreaker = new function()
    *
    *  1 second of movement = modifier * 60
    */
-  var modifiers = {
+  let cfgModifiers = {
+    ball_x: 5,
+    ball_y: 7,
+    plat_x: 20
+  };
+
+  let modifiers = {
     ball_x: 5,
     ball_y: 7,
     plat_x: 20
@@ -275,6 +295,8 @@ BrickBreaker = new function()
     //Build the bricks
     buildBricks();
 
+    travel_start = Date.now();
+    travel_startS = Date.now();
     startTimer = Date.now();
 
     in_progress = true;
@@ -359,6 +381,8 @@ BrickBreaker = new function()
     DOM.message.classList.add('active');
   }
 
+
+  // creates a brick
   function createBrick(type)
   {
     let brick = document.createElement("div");
@@ -791,6 +815,90 @@ BrickBreaker = new function()
     }
   }
 
+  const easeInBack = pos => {
+    const s = 1.70158;
+    return pos * pos * ((s + 1) * pos - s);
+  };
+
+  //easeInBack(current_time, start_value, end_value, total_time)
+  // function easeInBack(t, b, c, d)
+  // {
+  //   let s = 1.70158;
+
+  //   return c*(t/=d)*t*((s+1)*t - s) + b;
+  // };
+
+  let speedUid = 0;
+  let speedsters = {};
+
+  function speedUpBall()
+  {
+    //modifiers.ball_x += 10;
+    //console.log("speed up")
+    let intervalCfg = {uid: speedUid++, total_time: Date.now() + 750,
+        start_value: 4,
+        end_value: 0,
+        prev_val: 0}, del = (function ()
+    {
+      let now = Date.now();
+
+      if(this.total_time <= now)
+      {
+        delete speedsters[this.uid];
+        clearInterval(this.iuid);
+      }
+      else
+      {
+        speedsters[this.uid] = ((this.total_time - now) / 750) * Math.abs(this.end_value - this.start_value);
+      }
+    }).bind(intervalCfg);
+
+    intervalCfg.iuid = setInterval(del, 10);
+  };
+
+  function slowDownUpBall()
+  {
+    let ttl = 150, intervalCfg = {uid: speedUid++, total_time: Date.now() + ttl,
+        diff:2}, del = (function ()
+    {
+      let now = Date.now();
+
+      if(this.total_time <= now)
+      {
+        delete speedsters[this.uid];
+        clearInterval(this.iuid);
+      }
+      else
+      {
+        speedsters[this.uid] = -((this.total_time - now) / ttl) * this.diff;
+      }
+    }).bind(intervalCfg);
+
+    intervalCfg.iuid = setInterval(del, 10);
+  };
+
+  let modifierInterval = setInterval(function () {
+    let speed = 0, count = 0;
+
+    for(const each in speedsters)
+    {
+      speed += speedsters[each];
+      count++;
+    }
+
+    if(count > 0)
+    {
+      //modifiers.ball_x = cfgModifiers.ball_x + speed;
+      modifiers.ball_y = cfgModifiers.ball_y + (speed * 1.45);
+    }
+    else
+    {
+      //modifiers.ball_x = cfgModifiers.ball_x;
+      modifiers.ball_y = cfgModifiers.ball_y;
+    }
+    
+  }, 50);
+
   /**
    *  Check the ball for collisions with the platform
    *
@@ -821,15 +929,24 @@ BrickBreaker = new function()
 
       // now find which platform side has been hit
       let phalf = ((DOM.platform.rect.width - DOM.ball.rect.width) / 2);
-      debugger
+      //debugger
       if(DOM.ball.rect.x  < (DOM.platform.rect.x + phalf))
       {
         // ball should go left
 
+        // makes sure ball has to go left
         if(tracking.ball_x > 0)
         {
           DOM.ball.reverseX();
         }
+
+        // if the player is trying to push the ball to go faster
+        if(distance_per_short > 7)
+        {
+          speedUpBall();
+        }
+
+        console.log("distance_per_second", distance_per_second, " " + distance_per_short);
       }
       else if(DOM.ball.rect.x > (DOM.platform.rect.right - phalf))
       {
@@ -838,6 +955,13 @@ BrickBreaker = new function()
         {
           DOM.ball.reverseX();
         }
+
+        if(distance_per_short > 7)
+        {
+          speedUpBall();
+        }
+
+        console.log("distance_per_second", distance_per_second, " " + distance_per_short);
       }
     }
   }
@@ -929,6 +1053,8 @@ BrickBreaker = new function()
 
     if(badbricks.length)
     {
+      slowDownUpBall();
+
       if(badbricks.length == 1)
       {
         processCollision(badbricks[0]);
@@ -1369,6 +1495,51 @@ BrickBreaker = new function()
     return {x: xDirection, y: yDirection};
   }
 
+  let prevPX, prevPSX, prevPCount = 0, prevPSCount = 0, timeLimit = 1000, distanceS_traveled, travel_startS;
+
+  function applyPlatformCalculations()
+  {
+    let diff, diffp,  now, passed = 0, passeds = 0, x = DOM.platform.x;
+
+    if(prevPX != null)
+    {
+      diff = Math.abs(x - prevPX);
+      diffp = Math.abs(x - prevPSX);
+
+      distance_traveled += diff;
+      distanceS_traveled += diffp;
+
+      now = Date.now();
+
+      passed = (now - travel_start);
+      passeds = (now - travel_startS);
+
+      if(passeds > 100)
+      {
+        distance_per_short = distanceS_traveled / prevPSCount;
+        distanceS_traveled = 0;
+        prevPSCount = 0;
+        travel_startS = now - (passed - timeLimit);
+      }
+
+      // if more than a second passed
+      // reset the travel values
+      if(passed > timeLimit)
+      {
+        //debugger
+        distance_per_second = distance_traveled / prevPCount;
+        distance_traveled = 0;
+        prevPCount = 0;
+        travel_start = now - (passed - timeLimit);
+      }
+    }
+
+    prevPX = x;
+    prevPSX = x;
+    prevPCount++;
+    prevPSCount++;
+  };
+
   /**
    *  This function is called each time a frame should be rendered
    *
@@ -1417,6 +1588,8 @@ BrickBreaker = new function()
       positionPlatform(modifiers.plat_x * tracking.plat_x * -1, true, 1134);
     }
 
+    applyPlatformCalculations();
+
     //msg = vwidth - DOM.platform.x - DOM.platform.width;
     //msg = DOM.platform.x;
 
@@ -1434,12 +1607,16 @@ BrickBreaker = new function()
       if(levels.length > (current_level + 1))
       {
         current_level++;
+        localStorage.setItem('current_level', current_level);
 
         setNextStage();
       }
       else
       {
         // end game
+        localStorage.setItem('current_level', 0);
+
+        current_level = 0;
       }
       
       // no more bricks left, move to another stage
